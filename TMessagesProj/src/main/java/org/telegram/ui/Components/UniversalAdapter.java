@@ -337,9 +337,9 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             return true;
         }
         switch (viewType) {
-            case VIEW_TYPE_HEADER:
-            case VIEW_TYPE_ANIMATED_HEADER:
-            case VIEW_TYPE_BLACK_HEADER:
+            //case VIEW_TYPE_HEADER:
+            //case VIEW_TYPE_ANIMATED_HEADER:
+            //case VIEW_TYPE_BLACK_HEADER:
             case VIEW_TYPE_TEXT:
             case VIEW_TYPE_CHECK:
             case VIEW_TYPE_CHECKRIPPLE:
@@ -608,7 +608,11 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             viewType == VIEW_TYPE_CUSTOM_SHADOW ||
             viewType == VIEW_TYPE_SPACE ||
             viewType == VIEW_TYPE_TOPVIEW ||
-            viewType == VIEW_TYPE_FULLY_CUSTOM
+            viewType == VIEW_TYPE_FULLY_CUSTOM ||
+            viewType == VIEW_TYPE_HEADER ||
+            viewType == VIEW_TYPE_BLACK_HEADER ||
+            viewType == VIEW_TYPE_ANIMATED_HEADER ||
+            viewType == VIEW_TYPE_LARGE_HEADER
         );
     }
 

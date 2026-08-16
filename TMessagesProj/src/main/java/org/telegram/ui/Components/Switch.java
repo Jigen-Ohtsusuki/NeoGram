@@ -29,6 +29,7 @@ import android.os.Build;
 import android.util.StateSet;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.Keep;
 
@@ -235,7 +236,8 @@ public class Switch extends View {
 
     private void animateToCheckedState(boolean newCheckedState) {
         checkAnimator = ObjectAnimator.ofFloat(this, "progress", newCheckedState ? 1 : 0);
-        checkAnimator.setDuration(200);
+        checkAnimator.setDuration(400);
+        checkAnimator.setInterpolator(new OvershootInterpolator(1.2f));
         checkAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
@@ -247,7 +249,8 @@ public class Switch extends View {
 
     private void animateIcon(boolean newCheckedState) {
         iconAnimator = ObjectAnimator.ofFloat(this, "iconProgress", newCheckedState ? 1 : 0);
-        iconAnimator.setDuration(200);
+        iconAnimator.setDuration(400);
+        iconAnimator.setInterpolator(new OvershootInterpolator(1.2f));
         iconAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
@@ -377,12 +380,14 @@ public class Switch extends View {
             return;
         }
 
-        int width = AndroidUtilities.dp(31);
-        int thumb = AndroidUtilities.dp(20);
-        int x = (getMeasuredWidth() - width) / 2;
-        float y = (getMeasuredHeight() - AndroidUtilities.dpf2(14)) / 2;
-        int tx = x + AndroidUtilities.dp(7) + (int) (AndroidUtilities.dp(17) * progress);
-        int ty = getMeasuredHeight() / 2;
+        float width = AndroidUtilities.dp(40);
+        float x = (getMeasuredWidth() - width) / 2.0f;
+        float y = (getMeasuredHeight() - AndroidUtilities.dp(24)) / 2.0f;
+        float tx = x + AndroidUtilities.dp(12) + AndroidUtilities.dp(16) * progress;
+        float ty = getMeasuredHeight() / 2.0f;
+
+        float safeProgress = Math.max(0.0f, Math.min(1.0f, progress));
+        float safeIconProgress = Math.max(0.0f, Math.min(1.0f, iconProgress));
 
 
         int color1;
@@ -419,7 +424,7 @@ public class Switch extends View {
             } else if (overrideColorProgress == 2) {
                 colorProgress = a == 0 ? 1 : 0;
             } else {
-                colorProgress = progress;
+                colorProgress = safeProgress;
             }
 
             color1 = processColor(Theme.getColor(trackColorKey, resourcesProvider));
@@ -445,12 +450,11 @@ public class Switch extends View {
             paint.setColor(color);
             paint2.setColor(color);
 
-            rectF.set(x, y, x + width, y + AndroidUtilities.dpf2(14));
-            canvasToDraw.drawRoundRect(rectF, AndroidUtilities.dpf2(7), AndroidUtilities.dpf2(7), paint);
-            canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dpf2(10), paint);
+            rectF.set(x, y, x + width, y + AndroidUtilities.dp(24));
+            canvasToDraw.drawRoundRect(rectF, AndroidUtilities.dp(12), AndroidUtilities.dp(12), paint);
 
             if (a == 0 && rippleDrawable != null) {
-                rippleDrawable.setBounds(tx - AndroidUtilities.dp(18), ty - AndroidUtilities.dp(18), tx + AndroidUtilities.dp(18), ty + AndroidUtilities.dp(18));
+                rippleDrawable.setBounds((int)(tx - AndroidUtilities.dp(18)), (int)(ty - AndroidUtilities.dp(18)), (int)(tx + AndroidUtilities.dp(18)), (int)(ty + AndroidUtilities.dp(18)));
                 rippleDrawable.draw(canvasToDraw);
             } else if (a == 1) {
                 canvasToDraw.drawBitmap(overlayMaskBitmap, 0, 0, overlayMaskPaint);
@@ -474,7 +478,7 @@ public class Switch extends View {
             } else if (overrideColorProgress == 2) {
                 colorProgress = a == 0 ? 1 : 0;
             } else {
-                colorProgress = progress;
+                colorProgress = safeProgress;
             }
 
             color1 = Theme.getColor(thumbColorKey, resourcesProvider);
@@ -494,7 +498,10 @@ public class Switch extends View {
             alpha = (int) (a1 + (a2 - a1) * colorProgress);
             paint.setColor(((alpha & 0xff) << 24) | ((red & 0xff) << 16) | ((green & 0xff) << 8) | (blue & 0xff));
 
-            canvasToDraw.drawCircle(tx, ty, AndroidUtilities.dp(8), paint);
+            float currentRadius = AndroidUtilities.dp(6 + 2 * safeProgress);
+            float stretch = (float) Math.sin(progress * Math.PI) * AndroidUtilities.dp(5);
+            rectF.set(tx - currentRadius - stretch, ty - currentRadius, tx + currentRadius + stretch, ty + currentRadius);
+            canvasToDraw.drawRoundRect(rectF, currentRadius, currentRadius, paint);
 
             if (a == 0) {
                 if (iconDrawable != null) {
@@ -505,41 +512,42 @@ public class Switch extends View {
                             canvas.save();
                             canvas.scale(factor, factor, tx, ty);
                         }
-                        iconDrawable.setBounds(tx - iconDrawable.getIntrinsicWidth() / 2, ty - iconDrawable.getIntrinsicHeight() / 2, tx + iconDrawable.getIntrinsicWidth() / 2, ty + iconDrawable.getIntrinsicHeight() / 2);
+                        iconDrawable.setBounds((int)(tx - iconDrawable.getIntrinsicWidth() / 2f), (int)(ty - iconDrawable.getIntrinsicHeight() / 2f), (int)(tx + iconDrawable.getIntrinsicWidth() / 2f), (int)(ty + iconDrawable.getIntrinsicHeight() / 2f));
                         iconDrawable.draw(canvasToDraw);
                         if (needScale) {
                             canvas.restore();
                         }
                     }
                 } else if (drawIconType == 1) {
-                    tx -= AndroidUtilities.dp(10.8f) - AndroidUtilities.dp(1.3f) * progress;
-                    ty -= AndroidUtilities.dp(8.5f) - AndroidUtilities.dp(0.5f) * progress;
-                    int startX2 = (int) AndroidUtilities.dpf2(4.6f) + tx;
-                    int startY2 = (int) (AndroidUtilities.dpf2(9.5f) + ty);
-                    int endX2 = startX2 + AndroidUtilities.dp(2);
-                    int endY2 = startY2 + AndroidUtilities.dp(2);
+                    float iconTx = tx - AndroidUtilities.dp(10.8f) + AndroidUtilities.dp(1.3f) * safeProgress;
+                    float iconTy = ty - AndroidUtilities.dp(8.5f) + AndroidUtilities.dp(0.5f) * safeProgress;
 
-                    int startX = (int) AndroidUtilities.dpf2(7.5f) + tx;
-                    int startY = (int) AndroidUtilities.dpf2(5.4f) + ty;
-                    int endX = startX + AndroidUtilities.dp(7);
-                    int endY = startY + AndroidUtilities.dp(7);
+                    float startX2 = AndroidUtilities.dpf2(4.6f) + iconTx;
+                    float startY2 = AndroidUtilities.dpf2(9.5f) + iconTy;
+                    float endX2 = startX2 + AndroidUtilities.dp(2);
+                    float endY2 = startY2 + AndroidUtilities.dp(2);
 
-                    startX = (int) (startX + (startX2 - startX) * progress);
-                    startY = (int) (startY + (startY2 - startY) * progress);
-                    endX = (int) (endX + (endX2 - endX) * progress);
-                    endY = (int) (endY + (endY2 - endY) * progress);
+                    float startX = AndroidUtilities.dpf2(7.5f) + iconTx;
+                    float startY = AndroidUtilities.dpf2(5.4f) + iconTy;
+                    float endX = startX + AndroidUtilities.dp(7);
+                    float endY = startY + AndroidUtilities.dp(7);
+
+                    startX = startX + (startX2 - startX) * safeProgress;
+                    startY = startY + (startY2 - startY) * safeProgress;
+                    endX = endX + (endX2 - endX) * safeProgress;
+                    endY = endY + (endY2 - endY) * safeProgress;
                     canvasToDraw.drawLine(startX, startY, endX, endY, paint2);
 
-                    startX = (int) AndroidUtilities.dpf2(7.5f) + tx;
-                    startY = (int) AndroidUtilities.dpf2(12.5f) + ty;
+                    startX = AndroidUtilities.dpf2(7.5f) + iconTx;
+                    startY = AndroidUtilities.dpf2(12.5f) + iconTy;
                     endX = startX + AndroidUtilities.dp(7);
                     endY = startY - AndroidUtilities.dp(7);
                     canvasToDraw.drawLine(startX, startY, endX, endY, paint2);
                 } else if (drawIconType == 2 || iconAnimator != null) {
-                    paint2.setAlpha((int) (255 * (1.0f - iconProgress)));
+                    paint2.setAlpha((int) (255 * (1.0f - safeIconProgress)));
                     canvasToDraw.drawLine(tx, ty, tx, ty - AndroidUtilities.dp(5), paint2);
                     canvasToDraw.save();
-                    canvasToDraw.rotate(-90 * iconProgress, tx, ty);
+                    canvasToDraw.rotate(-90 * safeIconProgress, tx, ty);
                     canvasToDraw.drawLine(tx, ty, tx + AndroidUtilities.dp(4), ty, paint2);
                     canvasToDraw.restore();
                 }

@@ -77,6 +77,7 @@ import org.telegram.ui.Cells.ChatActionCell;
 import org.telegram.ui.Cells.ChatMessageCell;
 import org.telegram.ui.Cells.CollapseTextCell;
 import org.telegram.ui.Cells.GraySectionCell;
+import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.ShadowSectionCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
@@ -3310,7 +3311,7 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     }
     public void setSections(int padding, float roundRadius, boolean topPadding) {
         setSections(
-            view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof FiltersSetupActivity.HintInnerCell || view instanceof GraySectionCell || view instanceof CollapseTextCell) && !Objects.equals(view.getTag(), TAG_NOT_SECTION),
+            view -> !(view instanceof TextInfoPrivacyCell || view instanceof HeaderCell || view instanceof ShadowSectionCell || view instanceof FiltersSetupActivity.HintInnerCell || view instanceof GraySectionCell || view instanceof CollapseTextCell) && !Objects.equals(view.getTag(), TAG_NOT_SECTION),
             padding,
             roundRadius,
             this::drawBackgroundRect,
