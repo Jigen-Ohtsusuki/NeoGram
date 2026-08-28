@@ -13,6 +13,18 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    strategy:
+      matrix:
+        type: [debug, release]
+        include:
+          - type: debug
+            afat: assembleAfatDebug
+            name: ""
+            updates: 1
+          - type: release
+            afat: assembleAfatRelease
+            name: " compressed"
+            updates: 1
     steps:
       - uses: actions/checkout@v3.1.0
         with:
@@ -47,7 +59,7 @@ jobs:
           echo "ADDITIONAL_BUILD_NUMBER = $result should be between 0 and 10!"
           echo "ADDITIONAL_BUILD_NUMBER=$result" >> $GITHUB_ENV
           echo "USER_REPO=$GITHUB_REPOSITORY" >> $GITHUB_ENV
-          echo "CHECK_UPDATES=1" >> $GITHUB_ENV
+          echo "CHECK_UPDATES=${{ matrix.updates }}" >> $GITHUB_ENV
       - name: Build.
         run: |
           ###
@@ -63,7 +75,7 @@ jobs:
           echo "RELEASE_KEYSTORE_FILE=$PWD/TMessagesProj/config/release.keystore" >> $vars
           echo "ADDITIONAL_BUILD_NUMBER=$ADDITIONAL_BUILD_NUMBER" >> $vars
           echo "USER_REPO=$USER_REPO" >> $vars
-          echo "CHECK_UPDATES=1" >> $vars
+          echo "CHECK_UPDATES=${{ matrix.updates }}" >> $vars
           echo "USER_ID_OWNER=${{ secrets.USER_ID_OWNER }}" >> $vars
           echo "UPDATE_CHANNEL_USERNAME=${{ secrets.UPDATE_CHANNEL_USERNAME }}" >> $vars
           echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> $vars
@@ -74,23 +86,22 @@ jobs:
           echo $ADDITIONAL_BUILD_NUMBER
           sudo apt update
           sudo apt -y install ninja-build meson unzip pip gperf
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-          ./gradlew :TMessagesProj_App:assembleAfatRelease
+          ./gradlew :TMessagesProj_App:${{ matrix.afat }}
 
           #grep BUILD_VERSION_STRING TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java | cut -d'"' -f 2 > ver.txt
-          grep VERSION_NAME TMessagesProj/build/generated/source/buildConfig/release/org/telegram/messenger/BuildConfig.java | cut -d'"' -f 2 > ver.txt
+          grep VERSION_NAME TMessagesProj/build/generated/source/buildConfig/${{ matrix.type }}/org/telegram/messenger/BuildConfig.java | cut -d'"' -f 2 > ver.txt
 
           mkdir -p artifact
-          mv TMessagesProj_App/build/outputs/apk/afat/release/app.apk app.apk
-          cp app.apk "artifact/ForkClient $(cat ver.txt).apk"
+          mv TMessagesProj_App/build/outputs/apk/afat/${{ matrix.type }}/app.apk app.apk
+          cp app.apk "artifact/ForkClient $(cat ver.txt)${{ matrix.name }}.apk"
           mkdir -p tag_asset
-          cp app.apk "tag_asset/ForkClient_$(cat ver.txt).apk"
+          cp app.apk "tag_asset/ForkClient_$(cat ver.txt)${{ matrix.name }}.apk"
 
           # Upload to channel.
           if [[ "${{ contains(github.event.head_commit.message, '[Release]') }}" == "true" ]]; then
             set +x
             pip install requests tgcrypto-pyrofork Kurigram
-            cp app.apk "ForkClient $(cat ver.txt).apk"
+            cp app.apk "ForkClient $(cat ver.txt)${{ matrix.name }}.apk"
             echo "${{ secrets.BASE64_ZIP }}" | base64 --decode > output.zip
             unzip -j output.zip -d .
             ls
@@ -116,7 +127,7 @@ jobs:
         name: Upload artifact
         if: ${{ contains(github.event.head_commit.message, '[Release]') }}
         with:
-          name: ForkClient
+          name: ForkClient-${{ matrix.type }}
           path: artifact/
 
   release:
@@ -126,14 +137,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.1.0
-      - name: Download artifact
+      - name: Download debug artifact
         uses: actions/download-artifact@v4.3.0
         with:
-          name: ForkClient
-          path: asset
+          name: ForkClient-debug
+          path: debug_asset
+      - name: Download release artifact
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: ForkClient-release
+          path: release_asset
       - name: Get version info
         run: |
-          find asset -name "*.apk" | head -1 | sed 's/.*ForkClient //;s/\.apk//' > version.txt
+          find debug_asset -name "*.apk" | head -1 | sed 's/.*ForkClient //;s/\.apk//' > version.txt
           echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
           echo "OFFICIAL_VERSION=$(cat version.txt | sed 's/..$//')" >> $GITHUB_ENV
       - name: Create Release
@@ -142,7 +158,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
         with:
           draft: true
-          files: asset/*
+          files: |
+            debug_asset/*
+            release_asset/*
           tag_name: ${{ env.VERSION }}
           name: "ForkClient ${{ env.VERSION }}"
           body: "— Updated to ${{ env.OFFICIAL_VERSION }} build of the official Telegram."
